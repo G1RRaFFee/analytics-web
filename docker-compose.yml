@@ -1,0 +1,29 @@
+services:
+  backend:
+    container_name: population-backend
+    build:
+      context: .
+      dockerfile: backend/population-forecasting/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    container_name: population-frontend
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

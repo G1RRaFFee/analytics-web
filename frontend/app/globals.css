@@ -1,0 +1,260 @@
+﻿@import "tailwindcss";
+
+:root {
+  --background: #06090f;
+  --foreground: #e8edf5;
+  --tx: #e8edf5;
+  --mt: #8494aa;
+  --dim: #3d5275;
+  --b: #1a2640;
+  --b2: #243352;
+  --sf2: #101928;
+  --gr: #10b981;
+  --rd: #ef4444;
+  --ac2: #3b82f6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 50%);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgb(16 185 129 / 0%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0%);
+  }
+}
+
+.view-tab.active {
+  @apply bg-[#101928] text-[#e8edf5];
+}
+
+.view-tab:hover:not(.active) {
+  @apply text-[#8494aa];
+}
+
+.period-btn.active {
+  @apply border-[#3b82f6] bg-[#2563eb33] text-[#3b82f6];
+}
+
+.srch-dd {
+  display: none;
+}
+
+.srch-dd.open {
+  display: block;
+}
+
+.srch-opt {
+  @apply cursor-pointer border-b border-[#1a264066] px-2.5 py-1.5 text-[11px];
+}
+
+.srch-opt:hover {
+  @apply bg-[#2563eb1f];
+}
+
+.srch-opt b {
+  @apply font-semibold text-[#e8edf5];
+}
+
+.srch-opt small {
+  @apply block text-[9px] text-[#3d5275];
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgb(59 130 246 / 50%);
+}
+
+#mapCtr {
+  cursor: grab;
+  user-select: none;
+}
+
+#mapCtr:active {
+  cursor: grabbing;
+}
+
+.region {
+  cursor: pointer;
+  stroke: #0f1e32;
+  stroke-width: 0.4;
+  transition: filter 0.12s, stroke 0.12s, stroke-width 0.12s, opacity 0.2s;
+}
+
+.region:hover {
+  filter: brightness(1.35);
+  stroke: #5ba3e0;
+  stroke-width: 1.2;
+}
+
+.region.sel {
+  stroke: #fff;
+  stroke-width: 1.8;
+  filter: brightness(1.2);
+}
+
+.region.faded {
+  opacity: 0.08;
+}
+
+#tip {
+  position: fixed;
+  z-index: 999;
+  min-width: 200px;
+  border-radius: 10px;
+  border: 1px solid var(--b2);
+  background: rgb(6 9 15 / 97%);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 80%);
+  padding: 10px 14px;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 12px;
+  line-height: 1.5;
+  transition: opacity 0.1s;
+}
+
+#tip.on {
+  opacity: 1;
+}
+
+#mapView.hidden {
+  display: none;
+}
+
+#tableView,
+#topsView {
+  display: none;
+}
+
+#tableView.visible,
+#topsView.visible {
+  display: flex;
+}
+
+.detail,
+.mo-detail {
+  display: none;
+}
+
+.detail.on,
+.mo-detail.on {
+  display: block;
+}
+
+.tbl-row {
+  @apply grid cursor-pointer grid-cols-[1.6fr_80px_75px_60px_60px_60px_70px] border-b border-[#1a264066] px-[14px] py-[7px] transition-colors;
+  border-left: 2px solid transparent;
+}
+
+.tbl-row:hover {
+  @apply bg-[#2563eb0d];
+}
+
+.tbl-row.sel {
+  @apply bg-[#2563eb14];
+  border-left-color: #2563eb;
+}
+
+.tr-n {
+  @apply text-[11px] font-semibold text-[#e8edf5];
+}
+
+.tr-v {
+  @apply self-center text-right font-mono text-[11px] text-[#8494aa];
+}
+
+.top-row {
+  @apply flex cursor-pointer items-center justify-between gap-2 border-b border-[#1a264059] px-3 py-1.5;
+}
+
+.top-row:hover {
+  @apply bg-[#2563eb12];
+}
+
+.top-nm {
+  @apply min-w-0 flex-1 truncate text-[11px] font-semibold text-[#e8edf5];
+}
+
+.top-sub {
+  @apply text-[9px] text-[#3d5275];
+}
+
+.badge {
+  @apply inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold;
+}
+
+.badge.pos {
+  @apply bg-[#10b98126] text-[#10b981];
+}
+
+.badge.neg {
+  @apply bg-[#ef444426] text-[#ef4444];
+}
+
+.city-row {
+  @apply grid cursor-pointer grid-cols-[1fr_70px_56px] items-center border-b border-[#1a264059] px-[14px] py-[5px] transition-colors;
+}
+
+.city-row:hover {
+  @apply bg-[#2563eb12];
+}
+
+.city-nm {
+  @apply text-[11px] font-semibold text-[#e8edf5];
+}
+
+.city-tp {
+  @apply text-[9px] text-[#3d5275];
+}
+
+.city-pp {
+  @apply text-right font-mono text-[11px] text-[#8494aa];
+}
+
+.city-ch {
+  @apply text-right;
+}
+
+.ch-t {
+  @apply mb-1 mt-2 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.6px] text-[#3d5275];
+}
+
+.ch-t::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--b);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--b2);
+  border-radius: 2px;
+}

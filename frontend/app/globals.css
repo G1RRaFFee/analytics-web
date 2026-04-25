@@ -182,6 +182,10 @@ input[type="range"]::-webkit-slider-thumb {
   @apply text-[11px] font-semibold text-[#e8edf5];
 }
 
+.tr-s {
+  @apply mt-0.5 text-[9px] text-[#3d5275];
+}
+
 .tr-v {
   @apply self-center text-right font-mono text-[11px] text-[#8494aa];
 }

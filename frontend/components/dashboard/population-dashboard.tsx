@@ -57,7 +57,7 @@ export function PopulationDashboard() {
         src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
         strategy="afterInteractive"
       />
-      <Script src="/population-dashboard.js" strategy="lazyOnload" />
+      <Script src="/population-dashboard.js?v=2026-04-25-2" strategy="lazyOnload" />
     </div>
   );
 }

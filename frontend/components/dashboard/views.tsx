@@ -37,7 +37,7 @@ export function DashboardViews({ onSort }: DashboardViewsProps) {
 
       <div className="absolute inset-0 flex flex-col" id="tableView">
         <div className="grid shrink-0 grid-cols-[1.6fr_80px_75px_60px_60px_60px_70px] border-b border-[#1a2640] bg-[#101928] px-[14px] py-[7px] text-[9px] font-bold uppercase tracking-[0.6px] text-[#3d5275]">
-          <span>Регион</span>
+          <span>МО / Регион</span>
           <SortHead label="Население" onClick={() => onSort("pop")} />
           <SortHead label="Динамика" onClick={() => onSort("change")} />
           <SortHead label="Рожд." onClick={() => onSort("b")} />

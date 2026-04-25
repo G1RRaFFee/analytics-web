@@ -4,12 +4,9 @@ services:
     build:
       context: .
       dockerfile: backend/population-forecasting/Dockerfile
-    env_file:
-      - ./backend/population-forecasting/.env
     environment:
       NODE_ENV: production
       PORT: 8000
-      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -26,7 +23,7 @@ services:
       PORT: 3000
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
     ports:
-      - "3001:3000"
+      - "3000:3000"
     depends_on:
       - backend
     restart: unless-stopped

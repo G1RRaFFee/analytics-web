@@ -95,8 +95,6 @@ function chgP(r,p){
 let curYear=2023,period='2015-2023',filterReg='',filterType='';
 let srchReg=null,selReg=null,selMO=null,curView='map';
 let sortCol='pop',sortAsc=false,playTimer=null;
-let __pfSelectedAnalyticsEntity=null,__pfAnalyticsLoading=false;
-const __PF_REPORT_HORIZON=10,__PF_REPORT_CONFIDENCE=0.95;
 
 // ── Color scale ───────────────────────────────────────────────────────────
 function chgColor(pct){
@@ -146,8 +144,18 @@ function buildMap(){
     el.setAttribute('fill-rule','evenodd');
     el.dataset.rfkey=rfKey||'';
     el.dataset.name=gjName;
-    el.addEventListener('click',()=>rfKey&&selectRegion(rfKey));
-    el.addEventListener('mouseenter',e=>showTip(e,gjName,rfKey));
+    el.addEventListener('click',()=>{
+      if(!rfKey)return;
+      if(!__pfSnapshot)return;
+      if(!(__pfSnapshot.heatmap||[]).some(h=>h.regionName===rfKey))return;
+      selectRegion(rfKey);
+    });
+    el.addEventListener('mouseenter',e=>{
+      if(!rfKey)return;
+      if(!__pfSnapshot)return;
+      if(!(__pfSnapshot.heatmap||[]).some(h=>h.regionName===rfKey))return;
+      showTip(e,gjName,rfKey);
+    });
     el.addEventListener('mousemove',e=>{
       tipEl.style.left=Math.min(e.clientX+16,window.innerWidth-215)+'px';
       tipEl.style.top=Math.max(e.clientY-10,4)+'px';
@@ -419,16 +427,7 @@ function selectMO(moName,rName){
       </div>`;
   }
 }
-function closeMO(){
-  selMO=null;
-  document.getElementById('detMO').classList.remove('on');
-  document.getElementById('detRegion').classList.add('on');
-  if(selReg&&__pfRegionByName?.[selReg]){
-    __pfSetAnalyticsEntity({entityLevel:'region',entityId:__pfRegionByName[selReg],name:selReg});
-  }else{
-    __pfSetAnalyticsEntity(null);
-  }
-}
+function closeMO(){selMO=null;document.getElementById('detMO').classList.remove('on');document.getElementById('detRegion').classList.add('on');}
 
 // ── Select region ─────────────────────────────────────────────────────────
 function selectRegion(rfKey){
@@ -480,6 +479,11 @@ document.addEventListener('click',e=>{if(!e.target.closest('.srch-wrap'))srchDd.
 
 document.getElementById('yrSlider').addEventListener('input',function(){
   curYear=+this.value;document.getElementById('yrBadge').textContent=curYear;
+  if(typeof __pfRefreshSnapshot==='function'){
+    __pfRefreshSnapshot(true);
+    if(selReg)showRegDetail(selReg);
+    return;
+  }
   updateColors();updateKPIs();renderTable();if(selReg)showRegDetail(selReg);
 });
 function togglePlay(){
@@ -490,7 +494,12 @@ function togglePlay(){
   playTimer=setInterval(()=>{
     curYear++;document.getElementById('yrSlider').value=curYear;
     document.getElementById('yrBadge').textContent=curYear;
-    updateColors();updateKPIs();
+    if(typeof __pfRefreshSnapshot==='function'){
+      __pfRefreshSnapshot(true);
+      if(selReg)showRegDetail(selReg);
+    }else{
+      updateColors();updateKPIs();
+    }
     if(curYear>=2023){clearInterval(playTimer);playTimer=null;btn.textContent='▶';btn.classList.remove('on');}
   },900);
 }
@@ -529,6 +538,7 @@ let __pfLoadingSnapshot=null;
 let __pfRegionByName={};
 let __pfCityByRegion={};
 let __pfSearchTimer=null;
+let __pfMoHistoryCache={};
 
 function __pfHandleBootError(error){
   console.error('Population dashboard bootstrap failed:', error);
@@ -546,6 +556,123 @@ function __pfPeriodYears(){
   return {from:parts[0]||2015,to:parts[1]||2023};
 }
 
+function __pfFormatKpiRate(value, withSign){
+  const num=Number(value||0);
+  const abs=Math.abs(num);
+  const decimals=abs>0 && abs<0.01 ? 4 : (abs>0 && abs<0.1 ? 3 : 2);
+  const formatted=num.toFixed(decimals);
+  return withSign ? `${sgn(num)}${formatted}‰` : `${formatted}‰`;
+}
+
+function __pfLastDemographyPoint(series){
+  for(let i=(series||[]).length-1;i>=0;i--){
+    const p=series[i]||{};
+    if(p.birthRate!=null||p.deathRate!=null||p.migrationRate!=null||p.naturalGrowth!=null){
+      return p;
+    }
+  }
+  return (series||[])[(series||[]).length-1]||{};
+}
+
+function __pfDemographyYears(series){
+  return [...new Set((series||[]).map(p=>Number(p.year)).filter(Number.isFinite))].sort((a,b)=>a-b);
+}
+
+function __pfSeriesValue(series,year,key){
+  const point=(series||[]).find(p=>Number(p.year)===year);
+  if(!point)return null;
+  const value=point[key];
+  return value==null?null:Number(value);
+}
+
+function __pfRenderRegionDemographyChart(demo){
+  if(rDC){rDC.destroy();rDC=null;}
+  const years=__pfDemographyYears(demo);
+  const canvas=document.getElementById('rDemoC');
+  if(!canvas||years.length<2)return;
+  rDC=new Chart(canvas,{type:'line',
+    data:{labels:years,datasets:[
+      {label:'Рождаемость',data:years.map(y=>__pfSeriesValue(demo,y,'birthRate')),borderColor:'#10b981',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+      {label:'Смертность',data:years.map(y=>__pfSeriesValue(demo,y,'deathRate')),borderColor:'#ef4444',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+      {label:'Миграция',data:years.map(y=>__pfSeriesValue(demo,y,'migrationRate')),borderColor:'#06b6d4',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+      {label:'Ест. прирост',data:years.map(y=>__pfSeriesValue(demo,y,'naturalGrowth')),borderColor:'#8b5cf6',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+    ]},
+    options:{...CH_D,plugins:{...CH_D.plugins,tooltip:{...CH_D.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: ${c.raw!=null?Number(c.raw).toFixed(2)+'‰':'—'}`}}}}});
+}
+
+function __pfRenderMunicipalityDemographyChart(demo){
+  if(mDC){mDC.destroy();mDC=null;}
+  const years=__pfDemographyYears(demo);
+  const canvas=document.getElementById('mDemoC');
+  if(!canvas||years.length<2)return;
+  mDC=new Chart(canvas,{type:'line',
+    data:{labels:years,datasets:[
+      {label:'Рождаемость',data:years.map(y=>__pfSeriesValue(demo,y,'birthRate')),borderColor:'#10b981',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+      {label:'Смертность',data:years.map(y=>__pfSeriesValue(demo,y,'deathRate')),borderColor:'#ef4444',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+      {label:'Миграция',data:years.map(y=>__pfSeriesValue(demo,y,'migrationRate')),borderColor:'#06b6d4',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+      {label:'Ест. прирост',data:years.map(y=>__pfSeriesValue(demo,y,'naturalGrowth')),borderColor:'#8b5cf6',tension:.35,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent'},
+    ]},
+    options:{...CH_D,plugins:{...CH_D.plugins,tooltip:{...CH_D.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: ${c.raw!=null?Number(c.raw).toFixed(2)+'‰':'—'}`}}}}});
+}
+
+async function __pfGetMunicipalityHistory(entityId,from,to){
+  if(__pfMoHistoryCache[entityId])return __pfMoHistoryCache[entityId];
+  __pfMoHistoryCache[entityId]=__pfFetch('/api/v1/dashboard/final-data',{
+    year:curYear,
+    periodFromYear:from,
+    periodToYear:to,
+    page:1,
+    pageSize:1,
+    selectedEntity:{entityLevel:'municipality',entityId},
+  })
+    .then(r=>r.selectedEntity?.history||[])
+    .catch(()=>[]);
+  return __pfMoHistoryCache[entityId];
+}
+
+async function __pfRenderRegionTopCharts(rows,from,to){
+  const tableRows=[...(rows||[])];
+  const topByPopulation=tableRows
+    .sort((a,b)=>(b.population||0)-(a.population||0))
+    .slice(0,6);
+
+  if(rBC){rBC.destroy();rBC=null;}
+  const rBar=document.getElementById('rBarC');
+  if(rBar&&topByPopulation.length){
+    rBC=new Chart(rBar,{type:'bar',
+      data:{labels:topByPopulation.map(c=>c.name&&c.name.length>15?c.name.slice(0,13)+'…':c.name||'—'),
+        datasets:[{data:topByPopulation.map(c=>c.population||0),backgroundColor:topByPopulation.map(c=>(c.changePercent||0)>=0?'rgba(37,99,235,.7)':'rgba(239,68,68,.7)'),borderRadius:4}]},
+      options:{...CH,plugins:{...CH.plugins,tooltip:{...CH.plugins.tooltip,callbacks:{label:c=>' '+fmt(c.raw)+' чел.'}}},
+        scales:{...CH.scales,x:{...CH.scales.x,ticks:{...CH.scales.x.ticks,maxRotation:30}},y:{...CH.scales.y,ticks:{...CH.scales.y.ticks,callback:v=>fmtS(v)}}}}});
+  }
+
+  const top5=topByPopulation.slice(0,5);
+  if(rCC){rCC.destroy();rCC=null;}
+  const rCity=document.getElementById('rCityC');
+  if(!rCity||!top5.length)return;
+
+  const histories=await Promise.all(top5.map(async row=>({
+    id:row.entityId,
+    name:row.name,
+    history:await __pfGetMunicipalityHistory(row.entityId,from,to),
+  })));
+
+  const years=[...new Set(histories.flatMap(x=>(x.history||[]).map(h=>Number(h.year)).filter(Number.isFinite)))].sort((a,b)=>a-b);
+  if(!years.length)return;
+
+  const cc=['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444'];
+  rCC=new Chart(rCity,{type:'line',
+    data:{labels:years,datasets:histories.map((x,i)=>({
+      label:x.name&&x.name.length>18?x.name.slice(0,16)+'…':(x.name||'—'),
+      data:years.map(y=>(x.history||[]).find(h=>Number(h.year)===y)?.population??null),
+      borderColor:cc[i%cc.length],tension:.3,borderWidth:2,pointRadius:2,spanGaps:true,backgroundColor:'transparent',
+    }))},
+    options:{...CH,plugins:{...CH.plugins,
+      legend:{display:true,position:'bottom',labels:{color:'#8494aa',font:{size:8},boxWidth:8,padding:4}},
+      tooltip:{...CH.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: ${c.raw!=null?fmt(c.raw)+' чел.':'—'}`}}},
+      scales:{...CH.scales,y:{...CH.scales.y,ticks:{...CH.scales.y.ticks,callback:v=>fmtS(v)}}}}});
+}
+
 async function __pfFetch(path, body){
   const res=await fetch(`${__PF_API_BASE__}${path}`,{
     method:'POST',
@@ -555,133 +682,6 @@ async function __pfFetch(path, body){
   const data=await res.json();
   if(!res.ok)throw new Error(data?.message||`HTTP ${res.status}`);
   return data;
-}
-
-function __pfAnalyticsControls(){
-  return[
-    {button:document.getElementById('analyticsRegionDownload'),status:document.getElementById('analyticsRegionStatus')},
-    {button:document.getElementById('analyticsMunicipalityDownload'),status:document.getElementById('analyticsMunicipalityStatus')},
-  ];
-}
-
-function __pfSetAnalyticsStatus(message,color){
-  __pfAnalyticsControls().forEach(ctrl=>{
-    if(!ctrl.status)return;
-    ctrl.status.textContent=message||'';
-    ctrl.status.style.color=color||'#3d5275';
-  });
-}
-
-function __pfSetAnalyticsLoading(isLoading){
-  __pfAnalyticsLoading=!!isLoading;
-  __pfAnalyticsControls().forEach(ctrl=>{
-    if(!ctrl.button)return;
-    ctrl.button.disabled=!!isLoading;
-    ctrl.button.textContent=isLoading?'Формирование...':'Сформировать и выгрузить';
-  });
-}
-
-function __pfSetAnalyticsEntity(entity){
-  __pfSelectedAnalyticsEntity=entity||null;
-  __pfSetAnalyticsStatus('', '#3d5275');
-}
-
-function __pfCurrentReportFormat(){
-  const isMo=__pfSelectedAnalyticsEntity?.entityLevel==='municipality';
-  const field=document.getElementById(isMo?'analyticsMunicipalityFormat':'analyticsRegionFormat');
-  return field&&field.value?field.value:'pdf';
-}
-
-function __pfFilenameFromDisposition(header,fallback){
-  if(!header)return fallback;
-  const utfMatch=header.match(/filename\*=UTF-8''([^;]+)/i);
-  if(utfMatch&&utfMatch[1]){
-    try{return decodeURIComponent(utfMatch[1]);}catch(_e){/* noop */ }
-  }
-  const match=header.match(/filename="([^"]+)"/i)||header.match(/filename=([^;]+)/i);
-  return match&&match[1]?match[1].trim():fallback;
-}
-
-function __pfDownloadBlob(blob,fileName){
-  const url=URL.createObjectURL(blob);
-  const link=document.createElement('a');
-  link.href=url;
-  link.download=fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-
-async function __pfExportAnalyticsReport(){
-  if(__pfAnalyticsLoading)return;
-  if(!__pfSelectedAnalyticsEntity){
-    __pfSetAnalyticsStatus('Сначала выберите регион или муниципалитет.', '#ef4444');
-    return;
-  }
-
-  const {from,to}=__pfPeriodYears();
-  const format=__pfCurrentReportFormat();
-
-  __pfSetAnalyticsLoading(true);
-  __pfSetAnalyticsStatus('Формируем аналитическую справку...', '#3d5275');
-
-  try{
-    const res=await fetch(`${__PF_API_BASE__}/api/v1/analytics/report/export`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        entityLevel:__pfSelectedAnalyticsEntity.entityLevel,
-        entityId:__pfSelectedAnalyticsEntity.entityId,
-        year:curYear,
-        periodFromYear:from,
-        periodToYear:to,
-        horizonYears:__PF_REPORT_HORIZON,
-        confidenceLevel:__PF_REPORT_CONFIDENCE,
-        format,
-      }),
-    });
-
-    if(!res.ok){
-      let message=`HTTP ${res.status}`;
-      const contentType=res.headers.get('Content-Type')||'';
-      if(contentType.includes('application/json')){
-        const err=await res.json();
-        message=err?.message||message;
-      }else{
-        const text=await res.text();
-        if(text)message=text;
-      }
-      throw new Error(message);
-    }
-
-    const blob=await res.blob();
-    const ext=format==='docx'?'docx':'pdf';
-    const fallbackName=`analytics-report-${__pfSelectedAnalyticsEntity.entityLevel}.${ext}`;
-    const fileName=__pfFilenameFromDisposition(res.headers.get('Content-Disposition'),fallbackName);
-    __pfDownloadBlob(blob,fileName);
-    __pfSetAnalyticsStatus(`Справка выгружена в формате ${format==='docx'?'Word':'PDF'}.`, '#10b981');
-  }catch(error){
-    __pfSetAnalyticsStatus(error?.message||'Не удалось сформировать справку.', '#ef4444');
-  }finally{
-    __pfSetAnalyticsLoading(false);
-  }
-}
-
-function __pfBindAnalyticsButtons(){
-  ['analyticsRegionDownload','analyticsMunicipalityDownload'].forEach(id=>{
-    const btn=document.getElementById(id);
-    if(!btn||btn.dataset.bound)return;
-    btn.addEventListener('click',__pfExportAnalyticsReport);
-    btn.dataset.bound='1';
-  });
-
-  ['analyticsRegionFormat','analyticsMunicipalityFormat'].forEach(id=>{
-    const field=document.getElementById(id);
-    if(!field||field.dataset.bound)return;
-    field.addEventListener('change',()=>__pfSetAnalyticsStatus('', '#3d5275'));
-    field.dataset.bound='1';
-  });
 }
 
 function __pfClampYear(minYear,maxYear){
@@ -728,13 +728,7 @@ async function __pfLoadFilters(){
         const si=document.getElementById('srchInp'); if(si)si.value='';
         const sd=document.getElementById('srchDd'); if(sd)sd.classList.remove('open');
         if(filterReg){ selReg=filterReg; showRegDetail(filterReg); }
-        else{
-          selReg=null;
-          __pfSetAnalyticsEntity(null);
-          document.getElementById('detRegion')?.classList.remove('on');
-          const se=document.getElementById('sideEmpty');
-          if(se)se.style.display='';
-        }
+        else{ selReg=null; document.getElementById('detRegion')?.classList.remove('on'); const se=document.getElementById('sideEmpty'); if(se)se.style.display=''; }
         __pfRefreshSnapshot(true);
       });
       rf.dataset.liveBound='1';
@@ -863,13 +857,13 @@ function updateKPIs(){
   kCh.textContent=sgn(chg)+Number(chg).toFixed(1)+'%';
   kCh.style.color=chg>=0?'var(--gr)':'var(--rd)';
   document.getElementById('kPSub').textContent=period.replace('-','→');
-  document.getElementById('kBirth').textContent=Number(s.avgBirthRate||0).toFixed(1)+'‰';
-  document.getElementById('kDeath').textContent=Number(s.avgDeathRate||0).toFixed(1)+'‰';
+  document.getElementById('kBirth').textContent=__pfFormatKpiRate(s.avgBirthRate,false);
+  document.getElementById('kDeath').textContent=__pfFormatKpiRate(s.avgDeathRate,false);
   const nat=Number(s.avgNaturalGrowth||0);
   const kNat=document.getElementById('kNat');
-  kNat.textContent=sgn(nat)+nat.toFixed(1)+'‰';
+  kNat.textContent=__pfFormatKpiRate(nat,true);
   kNat.style.color=nat>=0?'var(--gr)':'var(--rd)';
-  document.getElementById('kMig').textContent=sgn(Number(s.avgMigrationRate||0))+Number(s.avgMigrationRate||0).toFixed(1)+'‰';
+  document.getElementById('kMig').textContent=__pfFormatKpiRate(s.avgMigrationRate,true);
   document.getElementById('kGrow').textContent=String(s.growingRegionsCount||0);
   document.getElementById('kGrowSub').textContent=`из ${(REGIONS_LIST||[]).length} регионов`;
 }
@@ -878,8 +872,8 @@ function renderTable(){
   if(!__pfSnapshot){ __pfRefreshSnapshot(false); return; }
   const rows=__pfSnapshot.table?.rows||[];
   document.getElementById('tblBody').innerHTML=rows.map(r=>`
-    <div class="tbl-row${selReg===r.subjectName?' sel':''}" onclick="selectRegion('${String(r.subjectName||'').replace(/'/g,"\\'")}')">
-      <div><div class="tr-n">${r.subjectName}</div></div>
+    <div class="tbl-row${selMO===r.entityId?' sel':''}" onclick="selectMOById('${String(r.entityId||'').replace(/'/g,"\\'")}')">
+      <div><div class="tr-n">${r.name||'—'}</div><div class="tr-s">${r.subjectName||''}</div></div>
       <div class="tr-v">${fmtS(r.population||0)}</div>
       <div class="tr-v" style="color:${(r.changePercent||0)>=0?'var(--gr)':'var(--rd)'}">${sgn(r.changePercent||0)}${Number(r.changePercent||0).toFixed(1)}%</div>
       <div class="tr-v">${r.birthRate!=null?Number(r.birthRate).toFixed(2)+'‰':'—'}</div>
@@ -910,7 +904,13 @@ function updateColors(){
     const el=rfKey?pathEls[rfKey]:null;
     if(!el)continue;
     const h=byName[rfKey];
-    if(!h){el.style.fill='#1a2640';el.classList.remove('faded','sel');continue;}
+    if(!h){
+      el.style.fill='#1a2640';
+      el.style.pointerEvents='none';
+      el.classList.remove('faded','sel');
+      continue;
+    }
+    el.style.pointerEvents='auto';
     el.style.fill=chgColor(h.changePercent||0);
     el.style.stroke=selReg===rfKey?'#fff':'#0f1e32';
     el.style.strokeWidth=selReg===rfKey?'1.8':'0.4';
@@ -953,25 +953,25 @@ async function showRegDetail(name){
   const p=res.selectedEntity?.profile||{};
   const history=res.selectedEntity?.history||[];
   const demo=res.selectedEntity?.demography||[];
-  __pfSetAnalyticsEntity({entityLevel:'region',entityId:regionId,name:p.name||name});
+  const tableRows=res.table?.rows||[];
   document.getElementById('sideEmpty').style.display='none';
   document.getElementById('detMO').classList.remove('on');
   document.getElementById('detRegion').classList.add('on');
   document.getElementById('dRName').textContent=p.name||name;
-  document.getElementById('dRSub').textContent=`${(res.table?.rows||[]).length} муниципальных образований`;
+  document.getElementById('dRSub').textContent=`${tableRows.length} муниципальных образований`;
   document.getElementById('dRBadge').innerHTML=badge((res.heatmap||[]).find(h=>h.regionName===name)?.changePercent||0);
   const last=history[history.length-1];
   document.getElementById('dRPop').textContent=fmtS(last?.population||0);
   const ch=(res.heatmap||[]).find(h=>h.regionName===name)?.changePercent||0;
   const dRChg=document.getElementById('dRChg'); dRChg.textContent=sgn(ch)+Number(ch).toFixed(1)+'%'; dRChg.style.color=ch>=0?'var(--gr)':'var(--rd)';
-  const dLast=demo[demo.length-1]||{};
+  const dLast=__pfLastDemographyPoint(demo);
   document.getElementById('dRB').textContent=dLast.birthRate!=null?Number(dLast.birthRate).toFixed(2)+'‰':'—';
   document.getElementById('dRD').textContent=dLast.deathRate!=null?Number(dLast.deathRate).toFixed(2)+'‰':'—';
   document.getElementById('dRNat').textContent=dLast.naturalGrowth!=null?sgn(dLast.naturalGrowth)+Number(dLast.naturalGrowth).toFixed(2)+'‰':'—';
   document.getElementById('dRM').textContent=dLast.migrationRate!=null?sgn(dLast.migrationRate)+Number(dLast.migrationRate).toFixed(2)+'‰':'—';
 
   __pfCityByRegion[name]={};
-  document.getElementById('cityList').innerHTML=(res.table?.rows||[]).slice(0,25).map(c=>{
+  document.getElementById('cityList').innerHTML=tableRows.slice(0,25).map(c=>{
     __pfCityByRegion[name][c.name]=c.entityId;
     return `<div class="city-row" onclick="selectMO('${String(c.name||'').replace(/'/g,"\\'")}','${String(name||'').replace(/'/g,"\\'")}')">
       <div><div class="city-nm">${c.name}</div><div class="city-tp">${c.municipalityType||''}</div></div>
@@ -985,6 +985,8 @@ async function showRegDetail(name){
   if(ys.length>=2){
     rLC=new Chart(document.getElementById('rLineC'),{type:'line',data:{labels:ys,datasets:[{data:vals,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.4,pointRadius:2,borderWidth:2}]},options:{...CH,plugins:{...CH.plugins,tooltip:{...CH.plugins.tooltip,callbacks:{label:c=>' '+fmt(c.raw)+' чел.'}}},scales:{...CH.scales,y:{...CH.scales.y,ticks:{...CH.scales.y.ticks,callback:v=>fmtS(v)}}}}});
   }
+  __pfRenderRegionDemographyChart(demo);
+  await __pfRenderRegionTopCharts(tableRows,from,to);
 }
 
 async function selectMO(moName,rName){
@@ -999,16 +1001,17 @@ async function selectMOById(id){
   const p=res.selectedEntity?.profile||{};
   const history=res.selectedEntity?.history||[];
   const demo=res.selectedEntity?.demography||[];
-  __pfSetAnalyticsEntity({entityLevel:'municipality',entityId:id,name:p.name||'—'});
+  selMO=id;
   document.getElementById('detRegion').classList.remove('on');
   document.getElementById('detMO').classList.add('on');
   document.getElementById('dMName').textContent=p.name||'—';
   document.getElementById('dMSub').textContent=`${p.municipalityType||''} · ${p.subjectName||''}`;
   const last=history[history.length-1]||{};
   document.getElementById('dMPop').textContent=fmtS(last.population||0);
-  const dLast=demo[demo.length-1]||{};
+  const dLast=__pfLastDemographyPoint(demo);
   const ch=history.length>1?((history[history.length-1].population-history[0].population)/Math.max(history[0].population||1,1))*100:0;
   const el=document.getElementById('dMChg'); el.textContent=sgn(ch)+Number(ch).toFixed(1)+'%'; el.style.color=ch>=0?'var(--gr)':'var(--rd)';
+  document.getElementById('dMBadge').innerHTML=badge(ch);
   document.getElementById('dMB').textContent=dLast.birthRate!=null?Number(dLast.birthRate).toFixed(2)+'‰':'—';
   document.getElementById('dMD').textContent=dLast.deathRate!=null?Number(dLast.deathRate).toFixed(2)+'‰':'—';
   document.getElementById('dMNat').textContent=dLast.naturalGrowth!=null?sgn(dLast.naturalGrowth)+Number(dLast.naturalGrowth).toFixed(2)+'‰':'—';
@@ -1017,10 +1020,12 @@ async function selectMOById(id){
   if(history.length>=2){
     mLC=new Chart(document.getElementById('mLineC'),{type:'line',data:{labels:history.map(h=>h.year),datasets:[{data:history.map(h=>h.population),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.4,pointRadius:2,borderWidth:2}]},options:{...CH,plugins:{...CH.plugins,tooltip:{...CH.plugins.tooltip,callbacks:{label:c=>' '+fmt(c.raw)+' чел.'}}},scales:{...CH.scales,y:{...CH.scales.y,ticks:{...CH.scales.y.ticks,callback:v=>fmtS(v)}}}}});
   }
+  __pfRenderMunicipalityDemographyChart(demo);
 }
 
 function selectRegion(rfKey){
   selReg=rfKey;srchReg=null;
+  selMO=null;
   const rf=document.getElementById('regFilter'); if(rf)rf.value=rfKey;
   filterReg=rfKey;
   updateColors();
@@ -1041,7 +1046,6 @@ async function initFilters(){
 }
 
 async function initDashboard(){
-  __pfBindAnalyticsButtons();
   await __pfLoadFilters();
   const ensureMap=()=>{
     if(document.getElementById('mapCtr')){buildMap();updateColors();return true;}

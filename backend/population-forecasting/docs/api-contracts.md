@@ -42,31 +42,6 @@ Query params:
 
 Response body: `FiltersResponse`
 
-### `POST /analytics/context`
-
-Return prepared monitoring and forecast context for analytic report generation for the selected region or municipality.
-
-Request body: `AnalyticsContextRequest`  
-Response body: `AnalyticsContextResponse`
-
-### `POST /analytics/report`
-
-Generate a structured analytical note using monitoring data, forecast and LLM orchestration.
-
-Request body: `AnalyticsContextRequest`  
-Response body: `AnalyticsReportResponse`
-
-### `POST /analytics/report/export`
-
-Generate and return the analytical note as a downloadable document.
-
-Request body: `AnalyticsExportRequest`
-
-Response:
-- `application/pdf` for `format = "pdf"`
-- `application/vnd.openxmlformats-officedocument.wordprocessingml.document` for `format = "docx"`
-- `Content-Disposition: attachment; filename="<generated-file-name>"`
-
 ## Error Contract
 
 All API errors are returned in unified format:

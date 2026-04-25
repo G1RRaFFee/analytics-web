@@ -241,14 +241,40 @@ export class PopulationDataService {
     source: RegionRecord['demographyByYear'] | MunicipalityRecord['demographyByYear'],
     year: number,
   ): Omit<DemographyPoint, 'year'> {
-    return (
-      source[year] ?? {
-        birthRate: null,
-        deathRate: null,
-        migrationRate: null,
-        naturalGrowth: null,
-      }
-    );
+    const empty: Omit<DemographyPoint, 'year'> = {
+      birthRate: null,
+      deathRate: null,
+      migrationRate: null,
+      naturalGrowth: null,
+    };
+
+    const isMeaningful = (value: Omit<DemographyPoint, 'year'> | undefined): value is Omit<DemographyPoint, 'year'> =>
+      Boolean(
+        value &&
+          (value.birthRate !== null ||
+            value.deathRate !== null ||
+            value.migrationRate !== null ||
+            value.naturalGrowth !== null),
+      );
+
+    const exact = source[year];
+    if (isMeaningful(exact)) {
+      return exact;
+    }
+
+    const years = Object.keys(source)
+      .map(Number)
+      .sort((a, b) => b - a);
+
+    const fallbackYear =
+      years.find((candidate) => candidate <= year && isMeaningful(source[candidate])) ??
+      years.find((candidate) => isMeaningful(source[candidate]));
+
+    if (fallbackYear !== undefined) {
+      return source[fallbackYear];
+    }
+
+    return empty;
   }
 
   ensureYearInRange(year: number): void {

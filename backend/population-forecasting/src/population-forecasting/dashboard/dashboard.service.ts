@@ -84,7 +84,13 @@ export class DashboardService {
     const avgBirthRate = this.averageNullable(metricsByYear.map((m) => m.birthRate));
     const avgDeathRate = this.averageNullable(metricsByYear.map((m) => m.deathRate));
     const avgMigrationRate = this.averageNullable(metricsByYear.map((m) => m.migrationRate));
-    const avgNaturalGrowth = this.averageNullable(metricsByYear.map((m) => m.naturalGrowth));
+    const naturalValues = metricsByYear
+      .map((m) => m.naturalGrowth)
+      .filter((value): value is number => value !== null);
+    const avgNaturalGrowthRaw =
+      naturalValues.length > 0 ? this.sum(naturalValues) / naturalValues.length : null;
+    const avgNaturalGrowth =
+      avgNaturalGrowthRaw !== null ? avgNaturalGrowthRaw : avgBirthRate - avgDeathRate;
 
     const growingRegionsCount = regions.filter((region) => {
       const from = region.populationByYear[fromYear];
@@ -98,10 +104,10 @@ export class DashboardService {
     return {
       totalPopulation,
       periodChangePercent: this.round(periodChangePercent, 2),
-      avgBirthRate: this.round(avgBirthRate, 2),
-      avgDeathRate: this.round(avgDeathRate, 2),
-      avgMigrationRate: this.round(avgMigrationRate, 2),
-      avgNaturalGrowth: this.round(avgNaturalGrowth, 2),
+      avgBirthRate: this.round(avgBirthRate, 4),
+      avgDeathRate: this.round(avgDeathRate, 4),
+      avgMigrationRate: this.round(avgMigrationRate, 4),
+      avgNaturalGrowth: this.round(avgNaturalGrowth, 4),
       growingRegionsCount,
     };
   }

@@ -18,42 +18,6 @@ function DetailKpi({ title, id, accent }: { title: string; id: string; accent: s
   );
 }
 
-function AnalyticsReportControls({
-  formatId,
-  buttonId,
-  statusId,
-}: {
-  formatId: string;
-  buttonId: string;
-  statusId: string;
-}) {
-  return (
-    <div className="mt-3 rounded-[10px] border border-[#1a2640] bg-[#0b1120] p-2.5">
-      <div className="mb-2 text-[9px] font-bold uppercase tracking-[0.7px] text-[#3d5275]">
-        Аналитическая справка
-      </div>
-      <div className="flex items-center gap-2">
-        <select
-          className="min-w-[86px] rounded border border-[#243352] bg-[#06090f] px-2 py-1 text-[10px] font-semibold text-[#d8e1ee] outline-none"
-          defaultValue="pdf"
-          id={formatId}
-        >
-          <option value="pdf">PDF</option>
-          <option value="docx">Word</option>
-        </select>
-        <button
-          className="flex-1 rounded border border-[#1d4ed8] bg-[#0f1f45] px-2 py-1 text-[10px] font-semibold text-[#dbeafe] transition-colors hover:border-[#60a5fa] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-          id={buttonId}
-          type="button"
-        >
-          Сформировать и выгрузить
-        </button>
-      </div>
-      <div className="mt-1.5 min-h-[14px] text-[10px] text-[#3d5275]" id={statusId} />
-    </div>
-  );
-}
-
 export function DashboardSidePanel({ onCloseMo }: DashboardSidePanelProps) {
   return (
     <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-l border-[#1a2640] bg-[#0c1220] md:w-[420px]">
@@ -77,11 +41,6 @@ export function DashboardSidePanel({ onCloseMo }: DashboardSidePanelProps) {
             </div>
             <div id="dRBadge" />
           </div>
-          <AnalyticsReportControls
-            buttonId="analyticsRegionDownload"
-            formatId="analyticsRegionFormat"
-            statusId="analyticsRegionStatus"
-          />
         </div>
 
         <div className="grid grid-cols-1 gap-[5px] p-3 sm:grid-cols-2">
@@ -136,11 +95,6 @@ export function DashboardSidePanel({ onCloseMo }: DashboardSidePanelProps) {
           >
             ← Назад к региону
           </button>
-          <AnalyticsReportControls
-            buttonId="analyticsMunicipalityDownload"
-            formatId="analyticsMunicipalityFormat"
-            statusId="analyticsMunicipalityStatus"
-          />
         </div>
 
         <div className="grid grid-cols-1 gap-[5px] p-3 sm:grid-cols-2">

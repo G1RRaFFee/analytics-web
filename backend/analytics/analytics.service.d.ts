@@ -1,0 +1,43 @@
+import type { AnalyticsContextRequest, AnalyticsContextResponse, AnalyticsExportRequest, AnalyticsReportResponse } from '../contracts/api-contracts';
+import { PopulationDataService } from '../population-forecasting/src/population-forecasting/data/population-data.service';
+import { DashboardService } from '../population-forecasting/src/population-forecasting/dashboard/dashboard.service';
+import { ForecastService } from '../population-forecasting/src/population-forecasting/forecast/forecast.service';
+import { AnalyticsExportService } from './analytics-export.service';
+import { AnalyticsFallbackService } from './analytics-fallback.service';
+import { AnalyticsGigachatService } from './analytics-gigachat.service';
+export declare class AnalyticsService {
+    private readonly dataService;
+    private readonly dashboardService;
+    private readonly forecastService;
+    private readonly fallbackService;
+    private readonly exportService;
+    private readonly gigachatService;
+    constructor(dataService: PopulationDataService, dashboardService: DashboardService, forecastService: ForecastService, fallbackService: AnalyticsFallbackService, exportService: AnalyticsExportService, gigachatService: AnalyticsGigachatService);
+    getContext(requestId: string, request: AnalyticsContextRequest): AnalyticsContextResponse;
+    generateReport(requestId: string, request: AnalyticsContextRequest): Promise<AnalyticsReportResponse>;
+    exportReport(requestId: string, request: AnalyticsExportRequest): Promise<{
+        buffer: Buffer;
+        contentType: string;
+        fileName: string;
+    }>;
+    private buildContext;
+    private resolveGeneration;
+    private buildBenchmark;
+    private buildSignals;
+    private latestDemographyPoint;
+    private hasMetric;
+    private averageMetrics;
+    private metricSnapshot;
+    private emptyMetrics;
+    private emptyMetricsWithYear;
+    private populationAtYear;
+    private rankByNumeric;
+    private classifyTrend;
+    private changePercent;
+    private averageAnnualChangePercent;
+    private averageNullable;
+    private validatePeriod;
+    private formatSignedPercent;
+    private formatSigned;
+    private round;
+}

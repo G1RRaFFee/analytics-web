@@ -95,6 +95,8 @@ function chgP(r,p){
 let curYear=2023,period='2015-2023',filterReg='',filterType='';
 let srchReg=null,selReg=null,selMO=null,curView='map';
 let sortCol='pop',sortAsc=false,playTimer=null;
+let __pfSelectedAnalyticsEntity=null,__pfAnalyticsLoading=false;
+const __PF_REPORT_HORIZON=10,__PF_REPORT_CONFIDENCE=0.95;
 
 // ── Color scale ───────────────────────────────────────────────────────────
 function chgColor(pct){
@@ -417,7 +419,16 @@ function selectMO(moName,rName){
       </div>`;
   }
 }
-function closeMO(){selMO=null;document.getElementById('detMO').classList.remove('on');document.getElementById('detRegion').classList.add('on');}
+function closeMO(){
+  selMO=null;
+  document.getElementById('detMO').classList.remove('on');
+  document.getElementById('detRegion').classList.add('on');
+  if(selReg&&__pfRegionByName?.[selReg]){
+    __pfSetAnalyticsEntity({entityLevel:'region',entityId:__pfRegionByName[selReg],name:selReg});
+  }else{
+    __pfSetAnalyticsEntity(null);
+  }
+}
 
 // ── Select region ─────────────────────────────────────────────────────────
 function selectRegion(rfKey){
@@ -546,6 +557,133 @@ async function __pfFetch(path, body){
   return data;
 }
 
+function __pfAnalyticsControls(){
+  return[
+    {button:document.getElementById('analyticsRegionDownload'),status:document.getElementById('analyticsRegionStatus')},
+    {button:document.getElementById('analyticsMunicipalityDownload'),status:document.getElementById('analyticsMunicipalityStatus')},
+  ];
+}
+
+function __pfSetAnalyticsStatus(message,color){
+  __pfAnalyticsControls().forEach(ctrl=>{
+    if(!ctrl.status)return;
+    ctrl.status.textContent=message||'';
+    ctrl.status.style.color=color||'#3d5275';
+  });
+}
+
+function __pfSetAnalyticsLoading(isLoading){
+  __pfAnalyticsLoading=!!isLoading;
+  __pfAnalyticsControls().forEach(ctrl=>{
+    if(!ctrl.button)return;
+    ctrl.button.disabled=!!isLoading;
+    ctrl.button.textContent=isLoading?'Формирование...':'Сформировать и выгрузить';
+  });
+}
+
+function __pfSetAnalyticsEntity(entity){
+  __pfSelectedAnalyticsEntity=entity||null;
+  __pfSetAnalyticsStatus('', '#3d5275');
+}
+
+function __pfCurrentReportFormat(){
+  const isMo=__pfSelectedAnalyticsEntity?.entityLevel==='municipality';
+  const field=document.getElementById(isMo?'analyticsMunicipalityFormat':'analyticsRegionFormat');
+  return field&&field.value?field.value:'pdf';
+}
+
+function __pfFilenameFromDisposition(header,fallback){
+  if(!header)return fallback;
+  const utfMatch=header.match(/filename\*=UTF-8''([^;]+)/i);
+  if(utfMatch&&utfMatch[1]){
+    try{return decodeURIComponent(utfMatch[1]);}catch(_e){/* noop */ }
+  }
+  const match=header.match(/filename="([^"]+)"/i)||header.match(/filename=([^;]+)/i);
+  return match&&match[1]?match[1].trim():fallback;
+}
+
+function __pfDownloadBlob(blob,fileName){
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download=fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function __pfExportAnalyticsReport(){
+  if(__pfAnalyticsLoading)return;
+  if(!__pfSelectedAnalyticsEntity){
+    __pfSetAnalyticsStatus('Сначала выберите регион или муниципалитет.', '#ef4444');
+    return;
+  }
+
+  const {from,to}=__pfPeriodYears();
+  const format=__pfCurrentReportFormat();
+
+  __pfSetAnalyticsLoading(true);
+  __pfSetAnalyticsStatus('Формируем аналитическую справку...', '#3d5275');
+
+  try{
+    const res=await fetch(`${__PF_API_BASE__}/api/v1/analytics/report/export`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        entityLevel:__pfSelectedAnalyticsEntity.entityLevel,
+        entityId:__pfSelectedAnalyticsEntity.entityId,
+        year:curYear,
+        periodFromYear:from,
+        periodToYear:to,
+        horizonYears:__PF_REPORT_HORIZON,
+        confidenceLevel:__PF_REPORT_CONFIDENCE,
+        format,
+      }),
+    });
+
+    if(!res.ok){
+      let message=`HTTP ${res.status}`;
+      const contentType=res.headers.get('Content-Type')||'';
+      if(contentType.includes('application/json')){
+        const err=await res.json();
+        message=err?.message||message;
+      }else{
+        const text=await res.text();
+        if(text)message=text;
+      }
+      throw new Error(message);
+    }
+
+    const blob=await res.blob();
+    const ext=format==='docx'?'docx':'pdf';
+    const fallbackName=`analytics-report-${__pfSelectedAnalyticsEntity.entityLevel}.${ext}`;
+    const fileName=__pfFilenameFromDisposition(res.headers.get('Content-Disposition'),fallbackName);
+    __pfDownloadBlob(blob,fileName);
+    __pfSetAnalyticsStatus(`Справка выгружена в формате ${format==='docx'?'Word':'PDF'}.`, '#10b981');
+  }catch(error){
+    __pfSetAnalyticsStatus(error?.message||'Не удалось сформировать справку.', '#ef4444');
+  }finally{
+    __pfSetAnalyticsLoading(false);
+  }
+}
+
+function __pfBindAnalyticsButtons(){
+  ['analyticsRegionDownload','analyticsMunicipalityDownload'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn||btn.dataset.bound)return;
+    btn.addEventListener('click',__pfExportAnalyticsReport);
+    btn.dataset.bound='1';
+  });
+
+  ['analyticsRegionFormat','analyticsMunicipalityFormat'].forEach(id=>{
+    const field=document.getElementById(id);
+    if(!field||field.dataset.bound)return;
+    field.addEventListener('change',()=>__pfSetAnalyticsStatus('', '#3d5275'));
+    field.dataset.bound='1';
+  });
+}
+
 function __pfClampYear(minYear,maxYear){
   if(curYear<minYear)curYear=minYear;
   if(curYear>maxYear)curYear=maxYear;
@@ -590,7 +728,13 @@ async function __pfLoadFilters(){
         const si=document.getElementById('srchInp'); if(si)si.value='';
         const sd=document.getElementById('srchDd'); if(sd)sd.classList.remove('open');
         if(filterReg){ selReg=filterReg; showRegDetail(filterReg); }
-        else{ selReg=null; document.getElementById('detRegion')?.classList.remove('on'); const se=document.getElementById('sideEmpty'); if(se)se.style.display=''; }
+        else{
+          selReg=null;
+          __pfSetAnalyticsEntity(null);
+          document.getElementById('detRegion')?.classList.remove('on');
+          const se=document.getElementById('sideEmpty');
+          if(se)se.style.display='';
+        }
         __pfRefreshSnapshot(true);
       });
       rf.dataset.liveBound='1';
@@ -809,6 +953,7 @@ async function showRegDetail(name){
   const p=res.selectedEntity?.profile||{};
   const history=res.selectedEntity?.history||[];
   const demo=res.selectedEntity?.demography||[];
+  __pfSetAnalyticsEntity({entityLevel:'region',entityId:regionId,name:p.name||name});
   document.getElementById('sideEmpty').style.display='none';
   document.getElementById('detMO').classList.remove('on');
   document.getElementById('detRegion').classList.add('on');
@@ -854,6 +999,7 @@ async function selectMOById(id){
   const p=res.selectedEntity?.profile||{};
   const history=res.selectedEntity?.history||[];
   const demo=res.selectedEntity?.demography||[];
+  __pfSetAnalyticsEntity({entityLevel:'municipality',entityId:id,name:p.name||'—'});
   document.getElementById('detRegion').classList.remove('on');
   document.getElementById('detMO').classList.add('on');
   document.getElementById('dMName').textContent=p.name||'—';
@@ -895,6 +1041,7 @@ async function initFilters(){
 }
 
 async function initDashboard(){
+  __pfBindAnalyticsButtons();
   await __pfLoadFilters();
   const ensureMap=()=>{
     if(document.getElementById('mapCtr')){buildMap();updateColors();return true;}

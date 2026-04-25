@@ -13,6 +13,18 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "..",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@nestjs/common": ["node_modules/@nestjs/common"],
+      "@pdf-lib/fontkit": ["node_modules/@pdf-lib/fontkit"],
+      "class-transformer": ["node_modules/class-transformer"],
+      "class-validator": ["node_modules/class-validator"],
+      "docx": ["node_modules/docx"],
+      "express": ["node_modules/express"],
+      "pdf-lib": ["node_modules/pdf-lib"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,

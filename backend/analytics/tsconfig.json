@@ -1,0 +1,19 @@
+{
+  "extends": "../population-forecasting/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".."
+  },
+  "include": [
+    "./**/*.ts",
+    "../contracts/**/*.ts",
+    "../population-forecasting/src/population-forecasting/contracts/**/*.ts",
+    "../population-forecasting/src/population-forecasting/data/**/*.ts",
+    "../population-forecasting/src/population-forecasting/dashboard/**/*.ts",
+    "../population-forecasting/src/population-forecasting/forecast/**/*.ts"
+  ],
+  "exclude": [
+    "../population-forecasting/src/**/*.spec.ts",
+    "../population-forecasting/test/**/*.ts"
+  ]
+}

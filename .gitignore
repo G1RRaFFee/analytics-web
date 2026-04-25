@@ -1,0 +1,8 @@
+backend/population-forecasting/node_modules/
+backend/population-forecasting/dist/
+backend/population-forecasting/coverage/
+backend/population-forecasting/.env
+backend/population-forecasting/.env.local
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo

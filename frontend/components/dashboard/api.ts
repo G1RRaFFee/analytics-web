@@ -1,6 +1,7 @@
-﻿export type EntityLevel = "region" | "municipality";
+export type EntityLevel = "region" | "municipality";
 export type MunicipalityType = "urban_okrug" | "municipal_raion" | "municipal_okrug";
 export type ConfidenceLevel = 0.8 | 0.9 | 0.95;
+export type ReportFormat = "pdf" | "docx";
 
 export interface DashboardFiltersResponse {
   requestId: string;
@@ -119,6 +120,120 @@ export interface ForecastMetricsResponse {
   validation: { method: "rolling-origin"; backtestWindowYears: number };
 }
 
+export interface AnalyticsContextRequest {
+  entityLevel: EntityLevel;
+  entityId: string;
+  year: number;
+  periodFromYear: number;
+  periodToYear: number;
+  horizonYears: number;
+  confidenceLevel?: ConfidenceLevel;
+}
+
+export interface AnalyticsContextResponse {
+  requestId: string;
+  generatedAt: string;
+  entity: {
+    id: string;
+    level: EntityLevel;
+    name: string;
+    subjectName?: string;
+    municipalityType?: MunicipalityType;
+  };
+  period: {
+    analysisYear: number;
+    periodFromYear: number;
+    periodToYear: number;
+    horizonYears: number;
+    confidenceLevel: ConfidenceLevel;
+  };
+  monitoring: {
+    currentPopulation: number;
+    startPopulation: number;
+    endPopulation: number;
+    periodChangePercent: number;
+    averageAnnualChangePercent: number;
+    trendLabel: string;
+    history: Array<{ year: number; population: number }>;
+  };
+  demography: {
+    latestYear: number | null;
+    latest: {
+      birthRate: number | null;
+      deathRate: number | null;
+      migrationRate: number | null;
+      naturalGrowth: number | null;
+    };
+    earlyPeriodAverage: {
+      birthRate: number | null;
+      deathRate: number | null;
+      migrationRate: number | null;
+      naturalGrowth: number | null;
+    };
+    recentPeriodAverage: {
+      birthRate: number | null;
+      deathRate: number | null;
+      migrationRate: number | null;
+      naturalGrowth: number | null;
+    };
+    keySignals: string[];
+  };
+  forecast: {
+    model: {
+      name: string;
+      trainedFromYear: number;
+      trainedToYear: number;
+      confidenceLevel: number;
+    };
+    changePercent: number;
+    points: Array<{ year: number; population: number; lower: number; upper: number }>;
+  };
+  benchmark?: {
+    title: string;
+    facts: string[];
+  };
+  peerHighlights: {
+    growthLeaders: Array<{ entityId: string; name: string; changePercent: number; population: number }>;
+    declineLeaders: Array<{ entityId: string; name: string; changePercent: number; population: number }>;
+  };
+}
+
+export interface AnalyticsReportResponse {
+  requestId: string;
+  generatedAt: string;
+  entity: {
+    id: string;
+    level: EntityLevel;
+    name: string;
+    subjectName?: string;
+    municipalityType?: MunicipalityType;
+  };
+  period: {
+    analysisYear: number;
+    periodFromYear: number;
+    periodToYear: number;
+    horizonYears: number;
+    confidenceLevel: ConfidenceLevel;
+  };
+  generation: {
+    provider: "gigachat" | "fallback";
+    model: string | null;
+    warning?: string;
+  };
+  report: {
+    title: string;
+    executiveSummary: string;
+    demographicTrends: string[];
+    forecastAssessment: string;
+    policyRecommendations: string[];
+    planningRecommendations: string[];
+  };
+}
+
+export interface AnalyticsExportRequest extends AnalyticsContextRequest {
+  format: ReportFormat;
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   const payload = await response.json();
   if (!response.ok) {
@@ -162,4 +277,44 @@ export async function getForecastMetrics(request: ForecastMetricsRequest): Promi
     body: JSON.stringify(request),
   });
   return parseResponse<ForecastMetricsResponse>(response);
+}
+
+export async function getAnalyticsContext(request: AnalyticsContextRequest): Promise<AnalyticsContextResponse> {
+  const response = await fetch(`${baseUrl()}/api/v1/analytics/context`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  return parseResponse<AnalyticsContextResponse>(response);
+}
+
+export async function generateAnalyticsReport(request: AnalyticsContextRequest): Promise<AnalyticsReportResponse> {
+  const response = await fetch(`${baseUrl()}/api/v1/analytics/report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  return parseResponse<AnalyticsReportResponse>(response);
+}
+
+export async function exportAnalyticsReport(
+  request: AnalyticsExportRequest,
+): Promise<{ blob: Blob; fileName: string | null; contentType: string }> {
+  const response = await fetch(`${baseUrl()}/api/v1/analytics/report/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const message = payload?.message ?? `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return {
+    blob: await response.blob(),
+    fileName: response.headers.get("Content-Disposition"),
+    contentType: response.headers.get("Content-Type") ?? "application/octet-stream",
+  };
 }

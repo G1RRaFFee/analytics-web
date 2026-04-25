@@ -11,6 +11,9 @@ export type MunicipalityType = (typeof MUNICIPALITY_TYPES)[number];
 export const CONFIDENCE_LEVELS = [0.8, 0.9, 0.95] as const;
 export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number];
 
+export const REPORT_FORMATS = ['pdf', 'docx'] as const;
+export type ReportFormat = (typeof REPORT_FORMATS)[number];
+
 export const SORT_FIELDS = [
   'population',
   'changePercent',
@@ -153,6 +156,122 @@ export interface FiltersResponse {
   };
   subjects: Array<{ id: string; name: string }>;
   municipalityTypes: Array<{ id: MunicipalityType; label: string }>;
+}
+
+export interface AnalyticsContextRequest {
+  entityLevel: EntityLevel;
+  entityId: string;
+  year: number;
+  periodFromYear: number;
+  periodToYear: number;
+  horizonYears: number;
+  confidenceLevel?: ConfidenceLevel;
+}
+
+export type AnalyticsReportRequest = AnalyticsContextRequest;
+
+export interface AnalyticsContextResponse {
+  requestId: string;
+  generatedAt: string;
+  entity: {
+    id: string;
+    level: EntityLevel;
+    name: string;
+    subjectName?: string;
+    municipalityType?: MunicipalityType;
+  };
+  period: {
+    analysisYear: number;
+    periodFromYear: number;
+    periodToYear: number;
+    horizonYears: number;
+    confidenceLevel: ConfidenceLevel;
+  };
+  monitoring: {
+    currentPopulation: number;
+    startPopulation: number;
+    endPopulation: number;
+    periodChangePercent: number;
+    averageAnnualChangePercent: number;
+    trendLabel: string;
+    history: Array<{ year: number; population: number }>;
+  };
+  demography: {
+    latestYear: number | null;
+    latest: {
+      birthRate: number | null;
+      deathRate: number | null;
+      migrationRate: number | null;
+      naturalGrowth: number | null;
+    };
+    earlyPeriodAverage: {
+      birthRate: number | null;
+      deathRate: number | null;
+      migrationRate: number | null;
+      naturalGrowth: number | null;
+    };
+    recentPeriodAverage: {
+      birthRate: number | null;
+      deathRate: number | null;
+      migrationRate: number | null;
+      naturalGrowth: number | null;
+    };
+    keySignals: string[];
+  };
+  forecast: {
+    model: {
+      name: string;
+      trainedFromYear: number;
+      trainedToYear: number;
+      confidenceLevel: number;
+    };
+    changePercent: number;
+    points: Array<{ year: number; population: number; lower: number; upper: number }>;
+  };
+  benchmark?: {
+    title: string;
+    facts: string[];
+  };
+  peerHighlights: {
+    growthLeaders: Array<{ entityId: string; name: string; changePercent: number; population: number }>;
+    declineLeaders: Array<{ entityId: string; name: string; changePercent: number; population: number }>;
+  };
+}
+
+export interface AnalyticsReportResponse {
+  requestId: string;
+  generatedAt: string;
+  entity: {
+    id: string;
+    level: EntityLevel;
+    name: string;
+    subjectName?: string;
+    municipalityType?: MunicipalityType;
+  };
+  period: {
+    analysisYear: number;
+    periodFromYear: number;
+    periodToYear: number;
+    horizonYears: number;
+    confidenceLevel: ConfidenceLevel;
+  };
+  generation: {
+    provider: 'gigachat' | 'fallback';
+    model: string | null;
+    warning?: string;
+  };
+  report: {
+    title: string;
+    executiveSummary: string;
+    demographicTrends: string[];
+    forecastAssessment: string;
+    policyRecommendations: string[];
+    planningRecommendations: string[];
+  };
+}
+
+export interface AnalyticsExportRequest extends AnalyticsContextRequest {
+  format: ReportFormat;
 }
 
 export interface ApiError {

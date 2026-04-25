@@ -44,6 +44,30 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Analytics report configuration
+
+The analytics report module can work in two modes:
+
+- `GigaChat` mode, if `GIGACHAT_AUTH_KEY` is configured
+- built-in fallback mode, if GigaChat is unavailable or explicitly disabled
+
+For local development, backend automatically reads variables from `backend/population-forecasting/.env`.
+
+Supported environment variables:
+
+```bash
+GIGACHAT_AUTH_KEY=...                     # base64 authorization key or full "Basic ..." header
+GIGACHAT_MODEL=GigaChat-2-Pro            # optional, defaults to GigaChat-2-Pro
+GIGACHAT_SCOPE=GIGACHAT_API_PERS         # optional
+GIGACHAT_API_BASE_URL=https://gigachat.devices.sberbank.ru/api/v1
+GIGACHAT_AUTH_URL=https://ngw.devices.sberbank.ru:9443/api/v2/oauth
+GIGACHAT_CA_CERT_PATH=C:\path\to\ca.pem  # optional custom CA
+GIGACHAT_IGNORE_TLS_ERRORS=false         # optional for local debugging only; prefer CA certificate in production
+GIGACHAT_DISABLED=false                  # set true to force fallback mode
+PDF_FONT_REGULAR_PATH=C:\path\to\font.ttf # optional custom font for PDF export
+PDF_FONT_BOLD_PATH=C:\path\to\fontbd.ttf  # optional custom bold font for PDF export
+```
+
 ## Run tests
 
 ```bash
